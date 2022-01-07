@@ -62,11 +62,31 @@ public class Main {
          session.run(q, params);
     }
 
-    static void markSpam() {
+    static void markSusp() {
 
         String q = "match (:User)-[:SENT]->(email:Email)-[:TO]->(:User) " +
                 "where (email)-[:CC]->(:User)-[:ALIAS_OF]->(:User) " +
                 "set email:SUSP, email.marked = Date() ";
+
+        session.run(q);
+    }
+
+    static void deleteSusp() {
+
+        String q = "match (email:Email:SUSP) " +
+                "detach delete email";
+
+        session.run(q);
+    }
+
+    static void markAsRead(String id, String user) {
+
+        String q = "match (email:Email { id: $id }), (user:User { name: $user }) " +
+                "create (user)-[:READ { at: Date() }]->(email)";
+
+        Map<String, Object> params = Map.of(
+                "id", id,
+                "user", user);
 
         session.run(q);
     }
@@ -105,7 +125,12 @@ public class Main {
                     var renameArgs = arguments.split("\s+", 2);
                     rename(renameArgs[0], renameArgs[1]);
                 }
-                case "markSpam" -> markSpam();
+                case "markSusp" -> markSusp();
+                case "deleteSusp" -> deleteSusp();
+                case "markAsRead" -> {
+                    var markAsReadArgs = arguments.split("\s+", 2);
+                    markAsRead(markAsReadArgs[0], markAsReadArgs[1]);
+                }
             }
 
         }
