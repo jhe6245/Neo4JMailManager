@@ -11,7 +11,7 @@ public class Main {
 
     static Session session;
 
-    static void sendMail(String from, String to, String content) {
+    static void send(String from, String to, String content) {
 
         String q = "merge (f:User { name: $fromName }) " +
                 "merge (t:User { name: $toName }) " +
@@ -26,7 +26,20 @@ public class Main {
         session.run(q, params);
     }
 
-    static List<String> getSent(String user) {
+    static void cc(String id, String user) {
+
+        String q = "match (email:Email { id: $id }), (user:User { name: $user }) " +
+                "create (email)-[:CC]->(user)";
+
+        Map<String, Object> params = Map.of(
+                "id", id,
+                "user", user
+        );
+
+        session.run(q, params);
+    }
+
+    static List<String> outbox(String user) {
 
         String q = "match (:User { name: $user })-[:SENT]-(e:Email) " +
                 "return e";
@@ -49,6 +62,14 @@ public class Main {
          session.run(q, params);
     }
 
+    static void markSpam() {
+
+        String q = "match (:User)-[:SENT]->(email:Email)-[:TO]->(:User) " +
+                "where (email)-[:CC]->(:User)-[:ALIAS_OF]->(:User) " +
+                "set email:SUSP, email.marked = Date() ";
+
+        session.run(q);
+    }
 
     public static void main(String[] args) throws IOException {
 
@@ -69,10 +90,14 @@ public class Main {
                 case "exit" -> exit = true;
                 case "send" -> {
                     var sendArgs = arguments.split("\s+", 3);
-                    sendMail(sendArgs[0], sendArgs[1], sendArgs[2]);
+                    send(sendArgs[0], sendArgs[1], sendArgs[2]);
+                }
+                case "cc" -> {
+                    var ccArgs = arguments.split("\s+", 2);
+                    cc(ccArgs[0], ccArgs[1]);
                 }
                 case "outbox" -> {
-                    for(String mail: getSent(arguments)) {
+                    for(String mail: outbox(arguments)) {
                         System.out.println(mail);
                     }
                 }
@@ -80,6 +105,7 @@ public class Main {
                     var renameArgs = arguments.split("\s+", 2);
                     rename(renameArgs[0], renameArgs[1]);
                 }
+                case "markSpam" -> markSpam();
             }
 
         }
